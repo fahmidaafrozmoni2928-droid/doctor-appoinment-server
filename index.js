@@ -8,6 +8,9 @@ const dotenv = require('dotenv')
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 dotenv.config()
+
+
+
 const uri = process.env.MONGODB_URI;
 
 
@@ -33,6 +36,8 @@ async function run() {
     const db = client.db("doctor");
     const detailsCollection = db.collection("details")
 
+    
+
     app.get("/details", async(req, res) => {
       const cursor = detailsCollection.find();
       const result = await cursor.toArray();
@@ -54,6 +59,11 @@ async function run() {
       const result = await detailsCollection.findOne(query);
       res.send(result);
     })
+
+
+
+
+
     // Send a ping to confirm a successful connection
     //await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
@@ -67,6 +77,10 @@ run().catch(console.dir);
 app.get('/', (req,res) => {
     res.send('server is running fine')
 })
+
+
+
+
 
 app.listen(PORT, () => {
     console.log(`server running on port ${PORT}`)
