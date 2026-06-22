@@ -2,19 +2,24 @@ const dns = require("node:dns");
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 const cors = require("cors");
+const express = require('express')
+const dotenv = require('dotenv')
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
+
+
+dotenv.config();
+
+const app = express();
 
 app.use(cors({
   origin: ["http://localhost:3000"],
   methods: ["GET", "POST", "PATCH", "DELETE"],
   credentials: true
 }));
-const express = require('express')
 
-const dotenv = require('dotenv')
 
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
-dotenv.config()
+
 
 
 
@@ -24,7 +29,7 @@ const uri = process.env.MONGODB_URI;
       new URL(`${process.env.CLIENT_URL}/api/auth/jwks`));
 
 
-const app = express()
+
 
 const PORT = process.env.PORT
 
@@ -80,7 +85,7 @@ async function run() {
     const db = client.db("doctor");
     const detailsCollection = db.collection("details");
     const bookingCollection = db.collection("booking");
-
+     const userCollection = db.collection("users");
     
 
     app.get("/details", async(req, res) => {
@@ -157,13 +162,20 @@ app.get("/my-bookings", verifyToken, async (req, res) => {
 
 app.get("/profile", verifyToken, async (req, res) => {
   try {
-    const user = req.user; // token থেকে আসবে
+    const email = req.user.email;
+
+    const user = await userCollection.findOne({ email });
+
+    if (!user) {
+      return res.status(404).send({ message: "User not found" });
+    }
 
     res.send({
       name: user.name,
       email: user.email,
       image: user.image,
     });
+
   } catch (error) {
     res.status(500).send({ message: "Server Error" });
   }
@@ -187,6 +199,26 @@ app.patch("/booking/:id", verifyToken, async (req, res) => {
   );
 
   res.send(result);
+});
+
+app.patch("/profile", verifyToken, async (req, res) => {
+  const email = req.user.email;
+  const updatedData = req.body;
+
+  const result = await userCollection.updateOne(
+    { email },
+    {
+      $set: {
+        name: updatedData.name,
+        image: updatedData.image,
+      },
+    }
+  );
+
+  res.send({
+    success: true,
+    modifiedCount: result.modifiedCount,
+  });
 });
 
 app.delete("/booking/:id", verifyToken, async (req, res) => {
