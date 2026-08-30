@@ -49,43 +49,7 @@ const logger = (req, res, next) => {
   next();
 }
  
-//const verifyToken = async(req, res, next) => {
-//  const {authorization} = req.headers;
- // const token = authorization?.split(' ')[1];
 
- // console.log("backend e token ashce:", token);
-
- // if(!token){
-  //  return res.status(401).json({message: 'Unauthorize' });
- // }
-    // console.log(req.headers)
-
-  //  try {
-   // const JWKS = createRemoteJWKSet(
-     // new URL('http://localhost:3000/api/auth/jwks')
-   // )
-
-    
-   // const { payload } = await jwtVerify(token, JWKS);
-
-     // req.user = {
-   // email: payload.email,
-   // name: payload.name,
-   // id: payload.sub || payload.id
- // };
-   // req.user= payload;
-//next()
-
-    //console.log(payload) 
- // } catch (error) {
-    //console.error('Token validation failed:', error);
-   // console.error('--- token validation failed ---');
-   // console.error(error.message);
-    //console.error(' ----------------------------- ');
-   // return res.status(401).json({message: 'Unauthorize'});
- // }
-  
-//};
 
 const verifyToken = async (req, res, next) => {
   try {
@@ -123,7 +87,7 @@ const verifyToken = async (req, res, next) => {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+   // await client.connect();
 
     const db = client.db("doctor");
     const detailsCollection = db.collection("details");
