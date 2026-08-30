@@ -1,22 +1,24 @@
 const dns = require("node:dns");
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
-const cors = require("cors");
+
+
 const express = require('express')
+//const cors = require("cors");
+
 const dotenv = require('dotenv')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const cors = require("cors");
+
 const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
 
 dotenv.config();
 
 const app = express();
+app.use(cors());
+app.use(express.json());
 
-app.use(cors({
-  origin: ["http://localhost:3000"],
-  methods: ["GET", "POST", "PATCH", "DELETE"],
-  credentials: true
-}));
 
 
 
@@ -46,36 +48,77 @@ const logger = (req, res, next) => {
   console.log(`${req.method} | ${req.url}`);
   next();
 }
+ 
+//const verifyToken = async(req, res, next) => {
+//  const {authorization} = req.headers;
+ // const token = authorization?.split(' ')[1];
 
-const verifyToken = async(req, res, next) => {
-  const {authorization} = req.headers;
-  const token = authorization?.split(' ')[1];
+ // console.log("backend e token ashce:", token);
 
-  if(!token){
-    return res.status(401).json({message: 'Unauthorize' });
-  }
+ // if(!token){
+  //  return res.status(401).json({message: 'Unauthorize' });
+ // }
     // console.log(req.headers)
 
-    try {
-    const JWKS = createRemoteJWKSet(
-      new URL('http://localhost:3000/api/auth/jwks')
-    )
-    const { payload } = await jwtVerify(token, JWKS);
+  //  try {
+   // const JWKS = createRemoteJWKSet(
+     // new URL('http://localhost:3000/api/auth/jwks')
+   // )
 
-      req.user = {
-    email: payload.email,
-    name: payload.name,
-    id: payload.sub || payload.id
-  };
+    
+   // const { payload } = await jwtVerify(token, JWKS);
+
+     // req.user = {
+   // email: payload.email,
+   // name: payload.name,
+   // id: payload.sub || payload.id
+ // };
    // req.user= payload;
-next()
+//next()
 
     //console.log(payload) 
-  } catch (error) {
-    console.error('Token validation failed:', error);
-    return res.status(401).json({message: 'Unauthorize'});
-  }
+ // } catch (error) {
+    //console.error('Token validation failed:', error);
+   // console.error('--- token validation failed ---');
+   // console.error(error.message);
+    //console.error(' ----------------------------- ');
+   // return res.status(401).json({message: 'Unauthorize'});
+ // }
   
+//};
+
+const verifyToken = async (req, res, next) => {
+  try {
+    const authorization = req.headers.authorization;
+
+    const token = authorization?.split(" ")[1];
+
+    console.log("BACKEND JWT:", token);
+
+    if (!token) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
+
+    const { payload } = await jwtVerify(token, JWKS);
+
+    console.log("JWT PAYLOAD:", payload);
+
+    req.user = {
+      email: payload.email,
+      id: payload.sub,
+    };
+
+    next();
+
+  } catch (error) {
+    console.error("Token validation failed:", error);
+
+    return res.status(401).json({
+      message: "Unauthorized",
+    });
+  }
 };
 async function run() {
   try {
@@ -85,15 +128,30 @@ async function run() {
     const db = client.db("doctor");
     const detailsCollection = db.collection("details");
     const bookingCollection = db.collection("booking");
-     const userCollection = db.collection("users");
+     const userCollection = db.collection("user");
     
 
     app.get("/details", async(req, res) => {
       const { search } = req.query;
 
       let cursor;
-      if(search){
-        cursor = detailsCollection.find({title: search});
+      if(search) {
+        cursor =  detailsCollection.find({
+          $or: [
+            {
+              name: {
+                $regex: search,
+                $options: 'i',
+              },
+            },
+            {
+              speciality: {
+                $regex: search,
+                $options: 'i',
+              },
+            },
+          ],
+        });
       }
       else{
          cursor = detailsCollection.find();
@@ -104,6 +162,10 @@ async function run() {
 
       res.send(result);
     });
+
+
+   
+
 
     app.get("/details/:detailsId", logger,verifyToken, async(req, res) => {
       
@@ -152,10 +214,11 @@ async function run() {
 
 app.get("/my-bookings", verifyToken, async (req, res) => {
   const email = req.user.email;
-
+ console.log("LOGGED IN EMAIL:", email);
   const bookings = await bookingCollection
     .find({ patientEmail: email })
     .toArray();
+     console.log("FOUND BOOKINGS:", bookings);
 
   res.send(bookings);
 });
@@ -164,20 +227,74 @@ app.get("/profile", verifyToken, async (req, res) => {
   try {
     const email = req.user.email;
 
+    console.log("PROFILE EMAIL:", email);
+
     const user = await userCollection.findOne({ email });
 
+    console.log("PROFILE USER:", user);
+
     if (!user) {
-      return res.status(404).send({ message: "User not found" });
+      return res.status(404).send({
+        message: "User not found",
+      });
     }
 
     res.send({
       name: user.name,
       email: user.email,
-      image: user.image,
+      image: user.image || "",
     });
 
   } catch (error) {
-    res.status(500).send({ message: "Server Error" });
+    console.error("PROFILE GET ERROR:", error);
+
+    res.status(500).send({
+      message: "Server Error",
+    });
+  }
+});
+
+
+app.patch("/profile", verifyToken, async (req, res) => {
+  try {
+    const email = req.user.email;
+    const { name, image } = req.body;
+
+    console.log("PROFILE UPDATE EMAIL:", email);
+    console.log("PROFILE UPDATE DATA:", { name, image });
+
+    const result = await userCollection.updateOne(
+      { email: email },
+      {
+        $set: {
+          name: name,
+          image: image || "",
+        },
+      }
+    );
+
+    console.log("MONGO UPDATE RESULT:", result);
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found in database",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      modifiedCount: result.modifiedCount,
+    });
+
+  } catch (error) {
+    console.error("PROFILE UPDATE ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
   }
 });
 
@@ -186,7 +303,9 @@ app.patch("/booking/:id", verifyToken, async (req, res) => {
   const updatedData = req.body;
 
   const result = await bookingCollection.updateOne(
-    { _id: new ObjectId(id) },
+    { _id: new ObjectId(id),
+      patientEmail: req.user.email
+     },
     {
       $set: {
         patientName: updatedData.patientName,
@@ -201,31 +320,14 @@ app.patch("/booking/:id", verifyToken, async (req, res) => {
   res.send(result);
 });
 
-app.patch("/profile", verifyToken, async (req, res) => {
-  const email = req.user.email;
-  const updatedData = req.body;
 
-  const result = await userCollection.updateOne(
-    { email },
-    {
-      $set: {
-        name: updatedData.name,
-        image: updatedData.image,
-      },
-    }
-  );
-
-  res.send({
-    success: true,
-    modifiedCount: result.modifiedCount,
-  });
-});
 
 app.delete("/booking/:id", verifyToken, async (req, res) => {
   const { id } = req.params;
 
   const result = await bookingCollection.deleteOne({
     _id: new ObjectId(id),
+    patientEmail: req.user.email
   });
 
   res.send(result);
