@@ -6,9 +6,15 @@ dns.setServers(["8.8.8.8", "8.8.4.4"]);
 const express = require('express')
 //const cors = require("cors");
 
+const cors = require("cors");
+
+
+
+
+
 const dotenv = require('dotenv')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const cors = require("cors");
+//const cors = require("cors");
 
 const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
@@ -16,11 +22,22 @@ const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 dotenv.config();
 
 const app = express();
-app.use(cors());
+//app.use(cors());
+//app.use(express.json());
+
+app.use(
+  cors({
+    origin: [
+      "https://doctor-appoinment-management-delta.vercel.app",
+      process.env.CLIENT_URL,
+    ],
+    credentials: true,
+  })
+);
+
+
+
 app.use(express.json());
-
-
-
 
 
 
